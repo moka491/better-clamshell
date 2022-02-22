@@ -6,7 +6,6 @@ SLEEP_AFTER=120
 # Check every n seconds to update sleep settings
 CHECK_DURATION=10
 
-
 function get_idle_time {
     echo "$(ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print int($NF/1000000000); exit}')"
 }
@@ -18,10 +17,6 @@ function get_display_count {
 # function is_lid_closed {
 #     echo "$(ioreg -r -k AppleClamshellState -d 1 | grep AppleClamshellState  | head -1 | grep "Yes" | wc -l)"
 # }
-
-function log {
-    echo "[clamshell] [$(date '+%H:%M:%S')] $1"
-}
 
 function disable_sleep {
     [[ sleep_disabled_state -ne 0 ]] && return
@@ -45,13 +40,16 @@ function sleep_now {
     pmset sleepnow > /dev/null
 }
 
+trap on_exit EXIT
 function on_exit {
     echo
-    echo "Exiting and reverting to defaults.."
+    log "exiting.. reverting to defaults"
     enable_sleep
 }
-trap on_exit EXIT
 
+function log {
+    echo "[clamshell] [$(date '+%H:%M:%S')] $1"
+}
 
 
 log "starting daemon.."
