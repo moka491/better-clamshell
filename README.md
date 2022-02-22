@@ -21,6 +21,11 @@ Unlike the builtin clamshell mode however, this also works on battery power!
 A LaunchDaemon plist file is provided. This allows the script to automatically start in the background.
 To install it, open a terminal and issue the following commands:
 
+Open the `com.moka491.BetterClamshell.plist` file and adjust the following line
+to point to the script in the folder you cloned the repository to:
+
+> \<string>/Users/moka/Workspace/better-clamshell/better-clamshell.sh\</string>
+
 Copy it to the system's launch daemons folder:
 
 > sudo cp com.moka491.BetterClamshell.plist /Library/LaunchDaemons/com.moka491.BetterClamshell.plist
