@@ -1,41 +1,48 @@
 #!/bin/bash
 
 # Sleep after this amount of time in seconds
-SLEEP_AFTER=5
+SLEEP_AFTER=120
 
 # Check every n seconds to update sleep settings
 CHECK_DURATION=10
 
-
-sleep_disabled=0
 
 function get_idle_time {
     echo "$(ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print int($NF/1000000000); exit}')"
 }
 
 function get_display_count {
-    echo "$(system_profiler SPDisplaysDataType -xml | sed -n '/spdisplays_ndrvs/,/<\/array>/p' | grep "_name" | wc -l)"
+    echo "$(system_profiler SPDisplaysDataType -xml | sed -n '/spdisplays_ndrvs/,/<\/array>/p' | grep "_name" | wc -l | xargs)"
+}
+
+# function is_lid_closed {
+#     echo "$(ioreg -r -k AppleClamshellState -d 1 | grep AppleClamshellState  | head -1 | grep "Yes" | wc -l)"
+# }
+
+function log {
+    echo "[clamshell] [$(date '+%H:%M:%S')] $1"
 }
 
 function disable_sleep {
-    [[ sleep_disabled -ne 0 ]] && return
+    [[ sleep_disabled_state -ne 0 ]] && return
 
-    pmset_sleep="$(pmset -g | awk '$1 ~ /^sleep/ {print $2}')"
-    pmset_hibernatemode="$(pmset -g | awk '/hibernatemode/ {print $2}')"
-
-    sudo pmset -a sleep 0 hibernatemode 0 disablesleep 1
-
-    sleep_disabled=1
-    echo "[clamshell] sleep disabled"
+    log "preventing device sleep.."
+    sudo pmset -a disablesleep 1
+    sleep_disabled_state=1
 }
 
 function enable_sleep {
-    [[ sleep_disabled -ne 1 ]] && return
+    [[ sleep_disabled_state -ne 1 ]] && return
 
-    sudo pmset -a sleep $pmset_sleep hibernatemode $pmset_hibernatemode disablesleep 0
+    log "allowing device sleep.."
+    sudo pmset -a disablesleep 0
+    sleep_disabled_state=0
+}
 
-    sleep_disabled=0
-    echo "[clamshell] sleep enabled"
+function sleep_now {
+    log "going to sleep.."
+    enable_sleep
+    pmset sleepnow > /dev/null
 }
 
 function on_exit {
@@ -45,16 +52,27 @@ function on_exit {
 }
 trap on_exit EXIT
 
+
+
+log "starting daemon.."
+log "will check for changes every $CHECK_DURATION seconds and sleep after $SLEEP_AFTER seconds when external screens are connected"
 while [ 1 ]
 do
-    idle_time="$(get_idle_time)"
     display_count="$(get_display_count)"
+    idle_time="$(get_idle_time)"
 
-    if [[ display_count -ge 1 && idle_time -lt SLEEP_AFTER ]]
+    log "performing check.. $display_count displays enabled, system idle time $idle_time seconds"
+
+    if [[ display_count -le 1 ]]
     then
-        disable_sleep
-    else
         enable_sleep
+    else
+        disable_sleep
+
+        if [[ idle_time -gt SLEEP_AFTER ]]
+        then
+            sleep_now
+        fi
     fi
 
     sleep $CHECK_DURATION
